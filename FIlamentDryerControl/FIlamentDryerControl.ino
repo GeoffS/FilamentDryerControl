@@ -12,14 +12,17 @@ float setPoint_C = 35;
 float hysterisis_C = 1;
 
 float upperSetPoint_C = setPoint_C + hysterisis_C/2;
-float lowerSetPoint_C = setPoint_C - hysterisis_C/2;
+float mediumLowSetPoint_C = setPoint_C - hysterisis_C/2;
+float lowerSetPoint_C = setPoint_C - hysterisis_C;
 
-float equlibDutyCycle = 0.21;
+float equlibDutyCycle = 0.3;
+float mediumLowEqulibDutyCycle = 0.155;
 
 unsigned long equilibOnTime_ms = delay_ms * equlibDutyCycle;
-unsigned long equilibOffTime_ms = delay_ms - equilibOnTime_ms;
+//unsigned long equilibOffTime_ms = delay_ms - equilibOnTime_ms;
 
-bool heaterStatus = false;
+unsigned long mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
+//unsigned long mediumLowEquilibOffTime_ms = delay_ms - mediumLowEquilibOnTime_ms;
 
 MAX6675 ktc(ktcCLK, ktcCS, ktcSO);
 
@@ -29,7 +32,6 @@ void setup()
   pinMode(RELAY_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
 
-  heaterStatus = false;
   digitalWrite(RELAY_PIN, LOW);
   digitalWrite(LED_PIN, LOW);
   
@@ -44,13 +46,20 @@ void loop()
   if((deg_C <= upperSetPoint_C) && (deg_C >= lowerSetPoint_C))
   {
     // Near the setpoint; pulse the heater:
-    Serial.println(",10");
+    float onTime_ms = equilibOnTime_ms;
+    if(deg_C >= mediumLowSetPoint_C)
+    {
+      // Just a little low...
+      onTime_ms = mediumLowEquilibOnTime_ms;
+    }
+    Serial.print(",");
+    Serial.println(onTime_ms);
     digitalWrite(RELAY_PIN, HIGH);
     digitalWrite(LED_PIN, HIGH);
-    delay(equilibOnTime_ms);
+    delay(onTime_ms);
     digitalWrite(RELAY_PIN, LOW);
     digitalWrite(LED_PIN, LOW);
-    delay(equilibOffTime_ms);
+    delay(delay_ms-onTime_ms);
     return;
   }
   
@@ -72,18 +81,4 @@ void loop()
   }
 
   delay(delay_ms);
-  
-//  if(heaterStatus)
-//  {
-//    digitalWrite(RELAY_PIN, HIGH);
-//    digitalWrite(LED_PIN, HIGH);
-//    Serial.println(",20");
-//  }
-//  else
-//  {
-//    digitalWrite(RELAY_PIN, LOW);
-//    digitalWrite(LED_PIN, LOW);
-//    Serial.println(",0");
-//  }
-//  delay(delay_ms);
 }

@@ -14,7 +14,7 @@ float hysterisis_C = 1;
 float upperSetPoint_C = setPoint_C + hysterisis_C/2;
 float lowerSetPoint_C = setPoint_C - hysterisis_C/2;
 
-float equlibDutyCycle = 0.215;
+float equlibDutyCycle = 0.21;
 
 unsigned long equilibOnTime_ms = delay_ms * equlibDutyCycle;
 unsigned long equilibOffTime_ms = delay_ms - equilibOnTime_ms;
@@ -39,7 +39,6 @@ void setup()
 void loop() 
 {
   float deg_C = ktc.readCelsius();
-  //Serial.print("Deg C = "); 
   Serial.print(deg_C);
 
   if((deg_C <= upperSetPoint_C) && (deg_C >= lowerSetPoint_C))
@@ -56,29 +55,35 @@ void loop()
   }
   
   // Too hot or too cold; Full on or off:
-  if(heaterStatus)
+  if(deg_C < upperSetPoint_C)
   {
-    // Heating up
-    if(deg_C > setPoint_C) heaterStatus = false;
-  }
-  else
-  {
-    // Cooling down
-    if(deg_C < setPoint_C-hysterisis_C) heaterStatus = true;
-  }
-  
-  
-  if(heaterStatus)
-  {
+    // Too cold:
+    Serial.println(",20");
     digitalWrite(RELAY_PIN, HIGH);
     digitalWrite(LED_PIN, HIGH);
-    Serial.println(",20");
   }
-  else
+  
+  if(deg_C > setPoint_C-hysterisis_C)
   {
+    // Too hot:
     digitalWrite(RELAY_PIN, LOW);
     digitalWrite(LED_PIN, LOW);
     Serial.println(",0");
   }
+
   delay(delay_ms);
+  
+//  if(heaterStatus)
+//  {
+//    digitalWrite(RELAY_PIN, HIGH);
+//    digitalWrite(LED_PIN, HIGH);
+//    Serial.println(",20");
+//  }
+//  else
+//  {
+//    digitalWrite(RELAY_PIN, LOW);
+//    digitalWrite(LED_PIN, LOW);
+//    Serial.println(",0");
+//  }
+//  delay(delay_ms);
 }

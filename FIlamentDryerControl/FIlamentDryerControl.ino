@@ -15,9 +15,9 @@ float upperSetPoint_C = setPoint_C + hysterisis_C/2;
 float mediumLowSetPoint_C = setPoint_C - hysterisis_C/2;
 float lowerSetPoint_C = setPoint_C - hysterisis_C;
 
-float lowDutyCycle = 0.3;
-float equlibDutyCycle = 0.1;
-float mediumLowEqulibDutyCycle = 0.05;
+float lowDutyCycle = 0.5;
+float equlibDutyCycle = 0.3;
+float mediumLowEqulibDutyCycle = 0.15;
 
 bool startupCtr;
 float startupTemp_C = 45;
@@ -51,19 +51,19 @@ void loop()
   float deg_C = ktc.readCelsius();
   Serial.print(deg_C);
 
-  if(startupCtr > 10)
-  {
-    heaterOn();
-    startupCtr++;
-    if(deg_C > startupTemp_C)
-    {
-      heaterOff();
-      startupCtr = 100;
-      Serial.println("Too Hot");
-      return;
-    }
-    delay(2000);
-  }
+//  if(startupCtr < 10)
+//  {
+//    heaterOn();
+//    startupCtr++;
+//    if(deg_C > startupTemp_C)
+//    {
+//      heaterOff();
+//      startupCtr = 100;
+//      Serial.println("Too Hot");
+//      return;
+//    }
+//    delay(2000);
+//  }
 
   if((deg_C <= upperSetPoint_C) && (deg_C >= lowerSetPoint_C))
   {

@@ -8,27 +8,27 @@ int ktcSO = 8;
 int ktcCS = 9;
 int ktcCLK = 10;
 
-float setPoint_C = 65;
-float hysterisis_C = 1;
+float setPoint_C = 70;
+float hysterisis_C = 4;
 
-float upperSetPoint_C = setPoint_C + hysterisis_C/2;
-float mediumLowSetPoint_C = setPoint_C - hysterisis_C/2;
+float upperSetPoint_C = setPoint_C + hysterisis_C / 2;
+float mediumLowSetPoint_C = setPoint_C - hysterisis_C / 2;
 float lowerSetPoint_C = setPoint_C - hysterisis_C;
+float startupTemp_C = 33;
 
-float lowDutyCycle = 0.5;
-float equlibDutyCycle = 0.3;
-float mediumLowEqulibDutyCycle = 0.15;
+float startupDutyCycle = 1.0;
+float lowDutyCycle = 0.6;
+float equlibDutyCycle = 0.4;
+float mediumLowEqulibDutyCycle = 0.3;
 
-bool startupCtr;
-float startupTemp_C = 45;
-
+unsigned long startupOnTime_ms = delay_ms * startupDutyCycle;
 unsigned long equilibOnTime_ms = delay_ms * equlibDutyCycle;
 unsigned long lowOnTime_ms = delay_ms * lowDutyCycle;
 unsigned long mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
 
 MAX6675 ktc(ktcCLK, ktcCS, ktcSO);
 
-void setup() 
+void setup()
 {
   Serial.begin(9600);
   pinMode(RELAY_PIN, OUTPUT);
@@ -37,82 +37,72 @@ void setup()
   digitalWrite(RELAY_PIN, LOW);
   digitalWrite(LED_PIN, LOW);
 
-   printVar("equilibOnTime_ms", equilibOnTime_ms);
-   printVar("mediumLowEquilibOnTime_ms", mediumLowEquilibOnTime_ms);
-   printVar("lowOnTime_ms", lowOnTime_ms);
-  
-  delay(500);
+  printVarf("startupTemp_C", startupTemp_C);
+  printVarf("lowerSetPoint_C", lowerSetPoint_C);
+  printVarf("mediumLowSetPoint_C", mediumLowSetPoint_C);
+  printVarf("setPoint_C", setPoint_C);
+  printVarf("upperSetPoint_C", upperSetPoint_C);
 
-  startupCtr = 0;
+  printVar("startupOnTime_ms", startupOnTime_ms);
+  printVar("lowOnTime_ms", lowOnTime_ms);
+  printVar("mediumLowEquilibOnTime_ms", mediumLowEquilibOnTime_ms);
+  printVar("equilibOnTime_ms", equilibOnTime_ms);
+
+  delay(500);
 }
 
-void loop() 
+void loop()
 {
   float deg_C = ktc.readCelsius();
   Serial.print(deg_C);
 
-//  if(startupCtr < 10)
-//  {
-//    heaterOn();
-//    startupCtr++;
-//    if(deg_C > startupTemp_C)
-//    {
-//      heaterOff();
-//      startupCtr = 100;
-//      Serial.println("Too Hot");
-//      return;
-//    }
-//    delay(2000);
-//  }
-
-  if((deg_C <= upperSetPoint_C) && (deg_C >= lowerSetPoint_C))
+  if (deg_C < startupTemp_C)
   {
-    // Near the setpoint; pulse the heater:
-    float onTime_ms = equilibOnTime_ms;
-    if(deg_C >= mediumLowSetPoint_C)
-    {
-      // Just a little low...
-      onTime_ms = mediumLowEquilibOnTime_ms;
-    }
-    Serial.print(",");
-    Serial.println(onTime_ms);
-    heaterOn();
-//    digitalWrite(RELAY_PIN, HIGH);
-//    digitalWrite(LED_PIN, HIGH);
-    delay(onTime_ms);
-    heaterOff();
-//    digitalWrite(RELAY_PIN, LOW);
-//    digitalWrite(LED_PIN, LOW);
-    delay(delay_ms-onTime_ms);
+    heatFor(startupOnTime_ms);
     return;
   }
-  
-  // Too hot or too cold; Full on or off:
-  if(deg_C < upperSetPoint_C)
+
+  if (deg_C < lowerSetPoint_C)
   {
-    // Too cold:
-    //Serial.println(",20");
-    Serial.print(",");
-    float onTime_ms = lowOnTime_ms;
-    Serial.println(onTime_ms);
-    heaterOn();
-    delay(onTime_ms);
-    heaterOff();
-    delay(delay_ms-onTime_ms);
+    heatFor(lowOnTime_ms);
     return;
-//    digitalWrite(RELAY_PIN, HIGH);
-//    digitalWrite(LED_PIN, HIGH);
-  }
-  
-  if(deg_C > setPoint_C-hysterisis_C)
-  {
-    // Too hot:
-    digitalWrite(RELAY_PIN, LOW);
-    digitalWrite(LED_PIN, LOW);
-    Serial.println(",0");
   }
 
+  if (deg_C < mediumLowSetPoint_C)
+  {
+    heatFor(equilibOnTime_ms);
+    return;
+  }
+
+  if (deg_C < upperSetPoint_C)
+  {
+    heatFor(mediumLowEquilibOnTime_ms);
+    return;
+  }
+
+  // Above the upperSetPoint_C -> turn off the heater:
+  heaterOff();
+  Serial.println(",0");
   delay(delay_ms);
+  return;
+}
+
+void heatFor(unsigned long onTime_ms)
+{
+  Serial.print(",");
+  Serial.println(onTime_ms);
+  if (onTime_ms > 0)
+  {
+    heaterOn();
+    delay(onTime_ms);
+  }
+  float offTime_ms = delay_ms - onTime_ms;
+  if (offTime_ms > 0)
+  {
+    heaterOff();
+    delay(delay_ms - onTime_ms);
+  }
+  return;
 }
 
 void heaterOn()
@@ -129,7 +119,13 @@ void heaterOff()
 
 void printVar(String name, unsigned long value)
 {
-  Serial.print(name+" ");
+  Serial.print(name + " ");
+  Serial.println(value);
+}
+
+void printVarf(String name, float value)
+{
+  Serial.print(name + " ");
   Serial.println(value);
 }
 

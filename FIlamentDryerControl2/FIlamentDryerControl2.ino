@@ -75,6 +75,10 @@ unsigned long nextEventTime_ms;
 unsigned long nextStartInterval_ms;
 int nextEventId = NO_ACTION;
 
+float lastTemps_C[10];
+int lastTempsCount = 0;
+float avgTemp_C = -999;
+
 void setup()
 {
   pinMode(RELAY_PIN, OUTPUT);
@@ -112,6 +116,8 @@ void loop()
     currTemp_C = ktc.readCelsius();
     printVar_f("currTemp_C", currTemp_C);
     displayCurrentTemperature(currTemp_C);
+    lastTemps_C[lastTempsCount] = currTemp_C;
+    lastTempsCount++;
     nextTempReading_ms += 500;
   }
 
@@ -167,6 +173,7 @@ void loop()
 
       case START_INTERVAL:
         nextStartInterval_ms = now + delay_ms;
+        processTemps();
         nextOffTime_ms = processStartInterval(now, currTemp_C);
         displayCurrentOnTime(nextOffTime_ms);
         break;
@@ -176,6 +183,15 @@ void loop()
         stopped = true;
     }
   }
+}
+
+void processTemps()
+{
+  avgTemp_C = 0.0;
+  for(int i=0; i<lastTempsCount; i++) avgTemp_C += lastTemps_C[i];
+  avgTemp_C /= lastTempsCount;
+  displayAvgTemperature(avgTemp_C);
+  lastTempsCount = 0;
 }
 
 unsigned long processStartInterval(unsigned long now, float currTemp_C)
@@ -277,6 +293,12 @@ void heaterOff()
 
 void displayCurrentTemperature(float deg_C)
 {
+  lcd.setCursor(0, 1); lcd.print(deg_C);
+  lcd.setCursor(5, 1); lcd.print("C");
+}
+
+void displayAvgTemperature(float deg_C)
+{
   lcd.setCursor(0, 0); lcd.print(deg_C);
   lcd.setCursor(5, 0); lcd.print("C");
 }
@@ -290,9 +312,9 @@ void displaySetPointTemperature(float setPoint_C)
 
 void displaySetPointWhileStopped(float setPoint_C)
 {
-  lcd.setCursor( 6, 1); lcd.print("Set:");
-  lcd.setCursor(10, 1); lcd.print(setPoint_C);
-  lcd.setCursor(15, 1); lcd.print("C");
+  lcd.setCursor( 6, 0); lcd.print("Set:");
+  lcd.setCursor(10, 0); lcd.print(setPoint_C);
+  lcd.setCursor(15, 0); lcd.print("C");
 }
 
 void displayCurrentOnTime(unsigned long onTime_ms)

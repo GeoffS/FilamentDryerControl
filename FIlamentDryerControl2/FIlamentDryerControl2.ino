@@ -68,6 +68,17 @@ unsigned long equilibOnTime_ms = delay_ms * equlibDutyCycle;
 unsigned long lowOnTime_ms = delay_ms * lowDutyCycle;
 unsigned long mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
 
+bool stopped = true;
+
+// Event types:
+#define NO_ACTION 0
+#define HEATER_OFF 1
+#define START_INTERVAL 2
+
+unsigned long nextEventTime_ms;
+unsigned long nextStartInterval_ms;
+int nextEventId = NO_ACTION;
+
 void setup()
 {
   pinMode(RELAY_PIN, OUTPUT);
@@ -90,8 +101,6 @@ void setup()
   zeroTime_ms = millis();
 }
 
-bool stopped = true;
-
 void loop()
 {
   unsigned long now = millis();
@@ -111,15 +120,15 @@ void loop()
       displayCurrentTemperature(currTemp_C);
       return;
     }
-    
+
     // Check the other buttons only when we're stopped:
     upButton.checkButtonState();
     downButton.checkButtonState();
     selectButton.checkButtonState();
     backButton.checkButtonState();
 
-    if(upButton.wasClicked())        setPoint_C += 5.0;
-    else if(downButton.wasClicked()) setPoint_C -= 5.0;
+    if (upButton.wasClicked())        setPoint_C += 5.0;
+    else if (downButton.wasClicked()) setPoint_C -= 5.0;
     displaySetPointWhileStopped(setPoint_C);
     return;
   }
@@ -132,22 +141,55 @@ void loop()
     displayCurrentTemperature(currTemp_C);
   }
 
+  if (now >= nextEventTime_ms)
+  {
+    switch (nextEventId)
+    {
+      case NO_ACTION:
+        break;
+
+      case HEATER_OFF:
+        heaterOff();
+        nextEventId = START_INTERVAL;
+        nextEventTime_ms = nextStartInterval_ms;
+        break;
+
+      case START_INTERVAL:
+        nextStartInterval_ms = now + delay_ms;
+        unsigned long not_ms = processStartInterval(now, currTemp_C);
+        //displayCurrentOnTime(nextOnTime_ms);
+        break;
+
+      default:
+        heaterOff();
+        stopped = true;
+    }
+  }
+}
+
+unsigned long processStartInterval(unsigned long now, float currTemp_C)
+{
   updateControlVariables(currTemp_C);
-
-  //mediumBlink.updateLedOnFlag(&now);
-
   displaySetPointTemperature(setPoint_C);
-
-//  lcd.setCursor(0, 0); lcd.print(now);
-//
-//  showButton("St", stopStartButton, 0);
-//  showButton("Up", upButton, 3);
-//  showButton("Dn", downButton, 7);
-//  showButton("Sl", selectButton, 10);
-//  showButton("Bk", backButton, 13);
-
   unsigned long nextOnTime_ms = calcOnTime(currTemp_C);
-  displayCurrentOnTime(nextOnTime_ms);
+
+  if (nextOnTime_ms > 0)
+  {
+    // Turn the heater on and setup for the heater-off event:
+    heaterOn();
+    nextEventId = HEATER_OFF;
+    nextEventTime_ms = now + nextOnTime_ms;
+  }
+  else
+  {
+     // No on-time. 
+     // Make sure the heater is off and setup for the next interrval start:
+    heaterOff();
+    nextEventId = START_INTERVAL;
+    nextEventTime_ms = nextStartInterval_ms;
+  }
+
+  return nextOnTime_ms;
 }
 
 unsigned long calcOnTime(float currTemp_C)

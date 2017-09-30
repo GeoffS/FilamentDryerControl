@@ -64,6 +64,8 @@ unsigned long equilibOnTime_ms = delay_ms * equlibDutyCycle;
 unsigned long lowOnTime_ms = delay_ms * lowDutyCycle;
 unsigned long mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
 
+unsigned long mediumLowEquilibOnTimeDelta_ms = 5;
+
 bool stopped = true;
 
 // Event types:
@@ -97,7 +99,7 @@ void setup()
   // Print a message to the LCD.
   lcd.setCursor(0, 0); lcd.print("Filament Dryer");
   lcd.setCursor(0, 1); lcd.print(FDC_VERSION);
-  delay(500);
+  delay(1000);
   lcd.clear();
   heaterOff();
 
@@ -116,6 +118,11 @@ void loop()
     currTemp_C = ktc.readCelsius();
     printVar_f("currTemp_C", currTemp_C);
     displayCurrentTemperature(currTemp_C);
+    if(currTemp_C == NAN)
+    {
+      stopped = true;
+      return;
+    }
     lastTemps_C[lastTempsCount] = currTemp_C;
     lastTempsCount++;
     nextTempReading_ms += 500;
@@ -196,7 +203,7 @@ void processTemps()
 
 unsigned long processStartInterval(unsigned long now, float currTemp_C)
 {
-  updateControlVariables(currTemp_C);
+  updateControlVariables(avgTemp_C);
   displaySetPointTemperature(setPoint_C);
   unsigned long nextOnTime_ms = calcOnTime(currTemp_C);
 
@@ -238,6 +245,20 @@ unsigned long calcOnTime(float currTemp_C)
 
   if (currTemp_C < upperSetPoint_C)
   {
+    float delta_C = currTemp_C - setPoint_C;
+
+    mediumLowEquilibOnTime_ms -= delta_C/3 * mediumLowEquilibOnTimeDelta_ms;
+    
+//    if(abs(delta_C) > 0.2) mediumLowEquilibOnTime_ms -= delta_C * mediumLowEquilibOnTimeDelta_ms;
+    
+//    if(delta_C >= 0.2) // A little too hot:
+//    {
+//      mediumLowEquilibOnTime_ms -= mediumLowEquilibOnTimeDelta_ms;
+//    }
+//    else if(delta_C <= -0.2) // A little too cold:
+//    {
+//      mediumLowEquilibOnTime_ms += mediumLowEquilibOnTimeDelta_ms;
+//    }
     return mediumLowEquilibOnTime_ms;
   }
 
@@ -260,22 +281,22 @@ void updateControlVariables(float currTemp_C)
   startupOnTime_ms = delay_ms * startupDutyCycle;
   equilibOnTime_ms = delay_ms * equlibDutyCycle;
   lowOnTime_ms = delay_ms * lowDutyCycle;
-  mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
+  //mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
 
   printControlVariables();
 }
 
-void showButton(String id, Button button, int offset)
-{
-  if (button.isPressed()) {
-    lcd.setCursor(offset, 1);
-    lcd.print(  id);
-  }
-  else                    {
-    lcd.setCursor(offset, 1);
-    lcd.print("  ");
-  }
-}
+//void showButton(String id, Button button, int offset)
+//{
+//  if (button.isPressed()) {
+//    lcd.setCursor(offset, 1);
+//    lcd.print(  id);
+//  }
+//  else                    {
+//    lcd.setCursor(offset, 1);
+//    lcd.print("  ");
+//  }
+//}
 
 void heaterOn()
 {

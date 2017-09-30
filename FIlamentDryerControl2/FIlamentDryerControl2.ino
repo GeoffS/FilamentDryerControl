@@ -2,13 +2,6 @@
 
 //#define USE_SERIAL
 
-// Stringify macro expansion...
-#define xstr(s) str(s)
-#define str(s) #s
-
-#define HARDWARE_INCLUDE xstr(HARDWARE.h)
-#define SSM_INCLUDE xstr(SSM_VERSION.h)
-
 #include <Button.h>
 #include <Blinker.h>
 // Include the thermocouple library:
@@ -90,9 +83,9 @@ void setup()
   digitalWrite(RELAY_PIN, LOW);
   digitalWrite(LED_PIN, LOW);
 
-  #ifdef USE_SERIAL 
+#ifdef USE_SERIAL
   Serial.begin(9600);
-  #endif
+#endif
 
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
@@ -102,6 +95,7 @@ void setup()
   lcd.setCursor(0, 1); lcd.print(FDC_VERSION);
   delay(500);
   lcd.clear();
+  heaterOff();
 
   zeroTime_ms = millis();
 }
@@ -131,6 +125,9 @@ void loop()
       stopped = false;
       lcd.clear();
       displayCurrentTemperature(currTemp_C);
+      stopStartButton.resetClicked();
+      nextEventTime_ms = now;
+      nextEventId = START_INTERVAL;
       return;
     }
 
@@ -146,14 +143,13 @@ void loop()
     return;
   }
 
-  if (stopStartButton.isPressed() || stopStartButton.wasClicked())
+  if (stopStartButton.wasClicked())
   {
     stopped = true;
     lcd.clear();
     heaterOff();
     displayCurrentTemperature(currTemp_C);
   }
-
 
   if (now >= nextEventTime_ms)
   {
@@ -184,7 +180,7 @@ void loop()
 
 unsigned long processStartInterval(unsigned long now, float currTemp_C)
 {
-  //updateControlVariables(currTemp_C);
+  updateControlVariables(currTemp_C);
   displaySetPointTemperature(setPoint_C);
   unsigned long nextOnTime_ms = calcOnTime(currTemp_C);
 
@@ -212,34 +208,25 @@ unsigned long calcOnTime(float currTemp_C)
   if (currTemp_C < startupTemp_C)
   {
     return startupOnTime_ms;
-    //    heatFor(startupOnTime_ms);
-    //    return;
   }
 
   if (currTemp_C < lowerSetPoint_C)
   {
     return lowOnTime_ms;
-    //    heatFor(lowOnTime_ms);
-    //    return;
   }
 
   if (currTemp_C < mediumLowSetPoint_C)
   {
     return equilibOnTime_ms;
-    //    heatFor(equilibOnTime_ms);
-    //    return;
   }
 
   if (currTemp_C < upperSetPoint_C)
   {
     return mediumLowEquilibOnTime_ms;
-    //    heatFor(mediumLowEquilibOnTime_ms);
-    //    return;
   }
 
   // Above the upperSetPoint_C -> turn off the heater:
   return 0;
-  //  heaterOff();
 }
 
 void updateControlVariables(float currTemp_C)
@@ -247,6 +234,7 @@ void updateControlVariables(float currTemp_C)
   upperSetPoint_C = setPoint_C + hysterisis_C / 2;
   mediumLowSetPoint_C = setPoint_C - hysterisis_C / 2;
   lowerSetPoint_C = setPoint_C - hysterisis_C;
+  startupTemp_C = setPoint_C - 20;
 
   startupDutyCycle = 1.0;
   lowDutyCycle = 0.6;
@@ -257,6 +245,8 @@ void updateControlVariables(float currTemp_C)
   equilibOnTime_ms = delay_ms * equlibDutyCycle;
   lowOnTime_ms = delay_ms * lowDutyCycle;
   mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
+
+  printControlVariables();
 }
 
 void showButton(String id, Button button, int offset)
@@ -269,11 +259,6 @@ void showButton(String id, Button button, int offset)
     lcd.setCursor(offset, 1);
     lcd.print("  ");
   }
-}
-
-void heatFor(unsigned long onTime_ms)
-{
-
 }
 
 void heaterOn()
@@ -323,17 +308,41 @@ void displayCurrentOnTime(unsigned long onTime_ms)
 
 void printVar_ul(String name, unsigned long value)
 {
-  #ifdef USE_SERIAL 
+#ifdef USE_SERIAL
   Serial.print(name + " ");
   Serial.println(value);
-  #endif
+#endif
 }
 
 void printVar_f(String name, float value)
 {
-  #ifdef USE_SERIAL 
+#ifdef USE_SERIAL
   Serial.print(name + " ");
   Serial.println(value);
+#endif
+}
+
+void printVar_b(String name, bool value)
+{
+#ifdef USE_SERIAL
+  Serial.print(name + " ");
+  Serial.println(value ? "true" : "false");
+#endif
+}
+
+void printControlVariables()
+{
+  #ifdef USE_SERIAL
+  printVar_f("startupTemp_C", startupTemp_C);
+  printVar_f("lowerSetPoint_C", lowerSetPoint_C);
+  printVar_f("mediumLowSetPoint_C", mediumLowSetPoint_C);
+  printVar_f("setPoint_C", setPoint_C);
+  printVar_f("upperSetPoint_C", upperSetPoint_C);
+
+  printVar_f("startupOnTime_ms", startupOnTime_ms);
+  printVar_f("lowOnTime_ms", lowOnTime_ms);
+  printVar_f("mediumLowEquilibOnTime_ms", mediumLowEquilibOnTime_ms);
+  printVar_f("equilibOnTime_ms", equilibOnTime_ms);
   #endif
 }
 

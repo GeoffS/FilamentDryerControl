@@ -1,5 +1,7 @@
 #define FDC_VERSION "2.0.0"
 
+//#define USE_SERIAL
+
 // Stringify macro expansion...
 #define xstr(s) str(s)
 #define str(s) #s
@@ -34,6 +36,7 @@ const int upButtonPin = A3;
 const int selectButtonPin = A4;
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
 MAX6675 ktc(ktcCLK, ktcCS, ktcSO);
 
 #define BOOL2HIGHLOW ?HIGH:LOW
@@ -87,7 +90,9 @@ void setup()
   digitalWrite(RELAY_PIN, LOW);
   digitalWrite(LED_PIN, LOW);
 
-  MAX6675 ktc(ktcCLK, ktcCS, ktcSO);
+  #ifdef USE_SERIAL 
+  Serial.begin(9600);
+  #endif
 
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
@@ -101,12 +106,20 @@ void setup()
   zeroTime_ms = millis();
 }
 
+unsigned long nextTempReading_ms = 0;
+float currTemp_C = 99.00;
+
 void loop()
 {
   unsigned long now = millis();
 
-  float currTemp_C = ktc.readCelsius();
-  displayCurrentTemperature(currTemp_C);
+  if (now >= nextTempReading_ms)
+  {
+    currTemp_C = ktc.readCelsius();
+    printVar_f("currTemp_C", currTemp_C);
+    displayCurrentTemperature(currTemp_C);
+    nextTempReading_ms += 500;
+  }
 
   // Check the start-stop button:
   stopStartButton.checkButtonState();
@@ -141,8 +154,10 @@ void loop()
     displayCurrentTemperature(currTemp_C);
   }
 
+
   if (now >= nextEventTime_ms)
   {
+    unsigned long nextOffTime_ms = 0;
     switch (nextEventId)
     {
       case NO_ACTION:
@@ -156,8 +171,8 @@ void loop()
 
       case START_INTERVAL:
         nextStartInterval_ms = now + delay_ms;
-        unsigned long not_ms = processStartInterval(now, currTemp_C);
-        //displayCurrentOnTime(nextOnTime_ms);
+        nextOffTime_ms = processStartInterval(now, currTemp_C);
+        displayCurrentOnTime(nextOffTime_ms);
         break;
 
       default:
@@ -169,7 +184,7 @@ void loop()
 
 unsigned long processStartInterval(unsigned long now, float currTemp_C)
 {
-  updateControlVariables(currTemp_C);
+  //updateControlVariables(currTemp_C);
   displaySetPointTemperature(setPoint_C);
   unsigned long nextOnTime_ms = calcOnTime(currTemp_C);
 
@@ -182,8 +197,8 @@ unsigned long processStartInterval(unsigned long now, float currTemp_C)
   }
   else
   {
-     // No on-time. 
-     // Make sure the heater is off and setup for the next interrval start:
+    // No on-time.
+    // Make sure the heater is off and setup for the next interrval start:
     heaterOff();
     nextEventId = START_INTERVAL;
     nextEventTime_ms = nextStartInterval_ms;
@@ -196,30 +211,35 @@ unsigned long calcOnTime(float currTemp_C)
 {
   if (currTemp_C < startupTemp_C)
   {
-    heatFor(startupOnTime_ms);
-    return;
+    return startupOnTime_ms;
+    //    heatFor(startupOnTime_ms);
+    //    return;
   }
 
   if (currTemp_C < lowerSetPoint_C)
   {
-    heatFor(lowOnTime_ms);
-    return;
+    return lowOnTime_ms;
+    //    heatFor(lowOnTime_ms);
+    //    return;
   }
 
   if (currTemp_C < mediumLowSetPoint_C)
   {
-    heatFor(equilibOnTime_ms);
-    return;
+    return equilibOnTime_ms;
+    //    heatFor(equilibOnTime_ms);
+    //    return;
   }
 
   if (currTemp_C < upperSetPoint_C)
   {
-    heatFor(mediumLowEquilibOnTime_ms);
-    return;
+    return mediumLowEquilibOnTime_ms;
+    //    heatFor(mediumLowEquilibOnTime_ms);
+    //    return;
   }
 
   // Above the upperSetPoint_C -> turn off the heater:
-  heaterOff();
+  return 0;
+  //  heaterOff();
 }
 
 void updateControlVariables(float currTemp_C)
@@ -299,5 +319,21 @@ void displayCurrentOnTime(unsigned long onTime_ms)
   else if (onTime_ms <= 999) timeLcdOffset = 5;
   lcd.setCursor(timeLcdOffset, 1); lcd.print(onTime_ms);
   lcd.setCursor(8, 1); lcd.print("ms");
+}
+
+void printVar_ul(String name, unsigned long value)
+{
+  #ifdef USE_SERIAL 
+  Serial.print(name + " ");
+  Serial.println(value);
+  #endif
+}
+
+void printVar_f(String name, float value)
+{
+  #ifdef USE_SERIAL 
+  Serial.print(name + " ");
+  Serial.println(value);
+  #endif
 }
 

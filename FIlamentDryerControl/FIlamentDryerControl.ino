@@ -50,7 +50,7 @@ void setup()
   lcd.begin(16, 2);
   // Print a message to the LCD.
   lcd.setCursor(0, 0); lcd.print("Filament Dryer");
-  lcd.setCursor(0, 1); lcd.print("v1.0");
+  lcd.setCursor(0, 1); lcd.print("v1.1");
 
   printVarf("startupTemp_C", startupTemp_C);
   printVarf("lowerSetPoint_C", lowerSetPoint_C);

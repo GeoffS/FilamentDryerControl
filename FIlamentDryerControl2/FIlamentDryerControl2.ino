@@ -1,4 +1,4 @@
-#define FDC_VERSION "2.0.0"
+#define FDC_VERSION "2.1.0"
 
 //#define USE_SERIAL
 
@@ -46,7 +46,7 @@ ULONG zeroTime_ms;
 
 const int delay_ms = 5000;
 
-float setPoint_C = 50;
+float setPoint_C = 70; //50;
 float hysterisis_C = 4;
 float startupTemp_C = setPoint_C - 20;
 
@@ -265,14 +265,14 @@ void heaterOn()
 {
   digitalWrite(RELAY_PIN, HIGH);
   digitalWrite(LED_PIN, HIGH);
-  lcd.setCursor(0, 1); lcd.print("ON ");
+  //lcd.setCursor(6, 1); lcd.print(" ON");
 }
 
 void heaterOff()
 {
   digitalWrite(RELAY_PIN, LOW);
   digitalWrite(LED_PIN, LOW);
-  lcd.setCursor(0, 1); lcd.print("OFF");
+  //lcd.setCursor(6, 1); lcd.print("OFF");
 }
 
 void displayCurrentTemperature(float deg_C)
@@ -297,13 +297,15 @@ void displaySetPointWhileStopped(float setPoint_C)
 
 void displayCurrentOnTime(unsigned long onTime_ms)
 {
-  lcd.setCursor(4, 1); lcd.print("    ms");
-  int timeLcdOffset = 4;
-  if (onTime_ms <= 9) timeLcdOffset = 7;
-  else if (onTime_ms <= 99) timeLcdOffset = 6;
-  else if (onTime_ms <= 999) timeLcdOffset = 5;
+  int timeLcdOffset = 10;
+  lcd.setCursor(timeLcdOffset, 1); lcd.print("    ms");
+  if (onTime_ms <= 9) timeLcdOffset += 3; //= 7;
+  else if (onTime_ms <= 99) timeLcdOffset += 2; // = 6;
+  else if (onTime_ms <= 999) timeLcdOffset += 1; // = 5;
   lcd.setCursor(timeLcdOffset, 1); lcd.print(onTime_ms);
-  lcd.setCursor(8, 1); lcd.print("ms");
+  //lcd.setCursor(8, 1); lcd.print("ms");
+  lcd.setCursor(timeLcdOffset+4, 1); lcd.print("ms");
+  
 }
 
 void printVar_ul(String name, unsigned long value)

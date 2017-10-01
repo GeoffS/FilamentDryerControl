@@ -1,4 +1,4 @@
-#define FDC_VERSION "2.0.0"
+#define FDC_VERSION "2.1.0"
 
 //#define USE_SERIAL
 
@@ -46,7 +46,7 @@ ULONG zeroTime_ms;
 
 const int delay_ms = 5000;
 
-float setPoint_C = 50;
+float setPoint_C = 70; //50;
 float hysterisis_C = 4;
 float startupTemp_C = setPoint_C - 20;
 
@@ -74,6 +74,10 @@ bool stopped = true;
 unsigned long nextEventTime_ms;
 unsigned long nextStartInterval_ms;
 int nextEventId = NO_ACTION;
+
+float lastTemps_C[10];
+int lastTempsCount = 0;
+float avgTemp_C = -999;
 
 void setup()
 {
@@ -112,6 +116,8 @@ void loop()
     currTemp_C = ktc.readCelsius();
     printVar_f("currTemp_C", currTemp_C);
     displayCurrentTemperature(currTemp_C);
+    lastTemps_C[lastTempsCount] = currTemp_C;
+    lastTempsCount++;
     nextTempReading_ms += 500;
   }
 
@@ -167,6 +173,7 @@ void loop()
 
       case START_INTERVAL:
         nextStartInterval_ms = now + delay_ms;
+        processTemps();
         nextOffTime_ms = processStartInterval(now, currTemp_C);
         displayCurrentOnTime(nextOffTime_ms);
         break;
@@ -176,6 +183,15 @@ void loop()
         stopped = true;
     }
   }
+}
+
+void processTemps()
+{
+  avgTemp_C = 0.0;
+  for(int i=0; i<lastTempsCount; i++) avgTemp_C += lastTemps_C[i];
+  avgTemp_C /= lastTempsCount;
+  displayAvgTemperature(avgTemp_C);
+  lastTempsCount = 0;
 }
 
 unsigned long processStartInterval(unsigned long now, float currTemp_C)
@@ -265,17 +281,23 @@ void heaterOn()
 {
   digitalWrite(RELAY_PIN, HIGH);
   digitalWrite(LED_PIN, HIGH);
-  lcd.setCursor(0, 1); lcd.print("ON ");
+  //lcd.setCursor(6, 1); lcd.print(" ON");
 }
 
 void heaterOff()
 {
   digitalWrite(RELAY_PIN, LOW);
   digitalWrite(LED_PIN, LOW);
-  lcd.setCursor(0, 1); lcd.print("OFF");
+  //lcd.setCursor(6, 1); lcd.print("OFF");
 }
 
 void displayCurrentTemperature(float deg_C)
+{
+  lcd.setCursor(0, 1); lcd.print(deg_C);
+  lcd.setCursor(5, 1); lcd.print("C");
+}
+
+void displayAvgTemperature(float deg_C)
 {
   lcd.setCursor(0, 0); lcd.print(deg_C);
   lcd.setCursor(5, 0); lcd.print("C");
@@ -290,20 +312,22 @@ void displaySetPointTemperature(float setPoint_C)
 
 void displaySetPointWhileStopped(float setPoint_C)
 {
-  lcd.setCursor( 6, 1); lcd.print("Set:");
-  lcd.setCursor(10, 1); lcd.print(setPoint_C);
-  lcd.setCursor(15, 1); lcd.print("C");
+  lcd.setCursor( 6, 0); lcd.print("Set:");
+  lcd.setCursor(10, 0); lcd.print(setPoint_C);
+  lcd.setCursor(15, 0); lcd.print("C");
 }
 
 void displayCurrentOnTime(unsigned long onTime_ms)
 {
-  lcd.setCursor(4, 1); lcd.print("    ms");
-  int timeLcdOffset = 4;
-  if (onTime_ms <= 9) timeLcdOffset = 7;
-  else if (onTime_ms <= 99) timeLcdOffset = 6;
-  else if (onTime_ms <= 999) timeLcdOffset = 5;
+  int timeLcdOffset = 10;
+  lcd.setCursor(timeLcdOffset, 1); lcd.print("    ms");
+  if (onTime_ms <= 9) timeLcdOffset += 3; //= 7;
+  else if (onTime_ms <= 99) timeLcdOffset += 2; // = 6;
+  else if (onTime_ms <= 999) timeLcdOffset += 1; // = 5;
   lcd.setCursor(timeLcdOffset, 1); lcd.print(onTime_ms);
-  lcd.setCursor(8, 1); lcd.print("ms");
+  //lcd.setCursor(8, 1); lcd.print("ms");
+  lcd.setCursor(timeLcdOffset+4, 1); lcd.print("ms");
+  
 }
 
 void printVar_ul(String name, unsigned long value)

@@ -1,4 +1,4 @@
-#define FDC_VERSION "2.1.0"
+#define FDC_VERSION "2.1.2"
 
 //#define USE_SERIAL
 
@@ -46,7 +46,7 @@ ULONG zeroTime_ms;
 
 const int delay_ms = 5000;
 
-float setPoint_C = 70; //50;
+float setPoint_C = 50;
 float hysterisis_C = 4;
 float startupTemp_C = setPoint_C - 20;
 
@@ -77,9 +77,11 @@ unsigned long nextEventTime_ms;
 unsigned long nextStartInterval_ms;
 int nextEventId = NO_ACTION;
 
-float lastTemps_C[10];
+#define MAX_LAST_TEMPS 10
+float lastTemps_C[MAX_LAST_TEMPS];
 int lastTempsCount = 0;
 float avgTemp_C = -999;
+float lastTempsFull = false;
 
 void setup()
 {
@@ -102,6 +104,8 @@ void setup()
   delay(1000);
   lcd.clear();
   heaterOff();
+  updateControlVariables();
+  displaySetPointWhileStopped(setPoint_C);
 
   zeroTime_ms = millis();
 }
@@ -116,17 +120,23 @@ void loop()
   if (now >= nextTempReading_ms)
   {
     currTemp_C = ktc.readCelsius();
-    printVar_f("currTemp_C", currTemp_C);
+    //printVar_f("currTemp_C", currTemp_C);
     displayCurrentTemperature(currTemp_C);
-    if(currTemp_C == NAN)
-    {
-      stopped = true;
-      return;
-    }
+    //    if (currTemp_C == NAN)
+    //    {
+    //      stopped = true;
+    //      return;
+    //    }
     lastTemps_C[lastTempsCount] = currTemp_C;
-    lastTempsCount++;
+    if (!lastTempsFull && lastTempsCount >= (MAX_LAST_TEMPS - 1)) lastTempsFull = true;
+    lastTempsCount = (lastTempsCount + 1) % MAX_LAST_TEMPS;
+
     nextTempReading_ms += 500;
+
+    if (!lastTempsFull) return;
   }
+
+  processTemps();
 
   // Check the start-stop button:
   stopStartButton.checkButtonState();
@@ -138,6 +148,7 @@ void loop()
       stopped = false;
       lcd.clear();
       displayCurrentTemperature(currTemp_C);
+      displaySetPointTemperature(setPoint_C);
       stopStartButton.resetClicked();
       nextEventTime_ms = now;
       nextEventId = START_INTERVAL;
@@ -150,9 +161,20 @@ void loop()
     selectButton.checkButtonState();
     backButton.checkButtonState();
 
-    if (upButton.wasClicked())        setPoint_C += 5.0;
-    else if (downButton.wasClicked()) setPoint_C -= 5.0;
-    displaySetPointWhileStopped(setPoint_C);
+    if (upButton.wasClicked())
+    {
+      setPoint_C += 5.0;
+      updateControlVariables();
+      displaySetPointWhileStopped(setPoint_C);
+    }
+    else if (downButton.wasClicked())
+    {
+      setPoint_C -= 5.0;
+      updateControlVariables();
+      displaySetPointWhileStopped(setPoint_C);
+    }
+
+
     return;
   }
 
@@ -162,6 +184,7 @@ void loop()
     lcd.clear();
     heaterOff();
     displayCurrentTemperature(currTemp_C);
+    displaySetPointWhileStopped(setPoint_C);
   }
 
   if (now >= nextEventTime_ms)
@@ -180,8 +203,8 @@ void loop()
 
       case START_INTERVAL:
         nextStartInterval_ms = now + delay_ms;
-        processTemps();
-        nextOffTime_ms = processStartInterval(now, currTemp_C);
+        //processTemps();
+        nextOffTime_ms = processStartInterval(now, avgTemp_C);
         displayCurrentOnTime(nextOffTime_ms);
         break;
 
@@ -195,16 +218,14 @@ void loop()
 void processTemps()
 {
   avgTemp_C = 0.0;
-  for(int i=0; i<lastTempsCount; i++) avgTemp_C += lastTemps_C[i];
-  avgTemp_C /= lastTempsCount;
-  displayAvgTemperature(avgTemp_C);
-  lastTempsCount = 0;
+  for (int i = 0; i < MAX_LAST_TEMPS; i++) avgTemp_C += lastTemps_C[i];
+  avgTemp_C /= MAX_LAST_TEMPS;
+  //displayAvgTemperature(avgTemp_C);
+  //lastTempsCount = 0;
 }
 
 unsigned long processStartInterval(unsigned long now, float currTemp_C)
 {
-  updateControlVariables(avgTemp_C);
-  displaySetPointTemperature(setPoint_C);
   unsigned long nextOnTime_ms = calcOnTime(currTemp_C);
 
   if (nextOnTime_ms > 0)
@@ -228,6 +249,9 @@ unsigned long processStartInterval(unsigned long now, float currTemp_C)
 
 unsigned long calcOnTime(float currTemp_C)
 {
+  printVar_f("calcOnTime Temp", currTemp_C);
+  displayAvgTemperature(currTemp_C);
+
   if (currTemp_C < startupTemp_C)
   {
     return startupOnTime_ms;
@@ -247,26 +271,24 @@ unsigned long calcOnTime(float currTemp_C)
   {
     float delta_C = currTemp_C - setPoint_C;
 
-    mediumLowEquilibOnTime_ms -= delta_C/3 * mediumLowEquilibOnTimeDelta_ms;
-    
-//    if(abs(delta_C) > 0.2) mediumLowEquilibOnTime_ms -= delta_C * mediumLowEquilibOnTimeDelta_ms;
-    
-//    if(delta_C >= 0.2) // A little too hot:
-//    {
-//      mediumLowEquilibOnTime_ms -= mediumLowEquilibOnTimeDelta_ms;
-//    }
-//    else if(delta_C <= -0.2) // A little too cold:
-//    {
-//      mediumLowEquilibOnTime_ms += mediumLowEquilibOnTimeDelta_ms;
-//    }
+    mediumLowEquilibOnTime_ms -= delta_C / 2 * mediumLowEquilibOnTimeDelta_ms;
+    if (mediumLowEquilibOnTime_ms < 500) mediumLowEquilibOnTime_ms = 500;
+    printVar_f("mediumLowEquilibOnTime_ms (hot)", mediumLowEquilibOnTime_ms);
+
     return mediumLowEquilibOnTime_ms;
   }
 
-  // Above the upperSetPoint_C -> turn off the heater:
+  // Above the upperSetPoint_C:
+  //  1) Turn off the heater
+  //  2) Reduce medmediumLowEquilibOnTime_ms by 500ms;
+  float delta_C = currTemp_C - setPoint_C;
+  mediumLowEquilibOnTime_ms -= delta_C * mediumLowEquilibOnTimeDelta_ms;
+  if (mediumLowEquilibOnTime_ms < 500) mediumLowEquilibOnTime_ms = 500;
+  printVar_f("mediumLowEquilibOnTime_ms (vhot)", mediumLowEquilibOnTime_ms);
   return 0;
 }
 
-void updateControlVariables(float currTemp_C)
+void updateControlVariables()
 {
   upperSetPoint_C = setPoint_C + hysterisis_C / 2;
   mediumLowSetPoint_C = setPoint_C - hysterisis_C / 2;
@@ -281,22 +303,11 @@ void updateControlVariables(float currTemp_C)
   startupOnTime_ms = delay_ms * startupDutyCycle;
   equilibOnTime_ms = delay_ms * equlibDutyCycle;
   lowOnTime_ms = delay_ms * lowDutyCycle;
-  //mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
+  mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
+  printVar_f("mediumLowEquilibOnTime_ms (update)", mediumLowEquilibOnTime_ms);
 
   printControlVariables();
 }
-
-//void showButton(String id, Button button, int offset)
-//{
-//  if (button.isPressed()) {
-//    lcd.setCursor(offset, 1);
-//    lcd.print(  id);
-//  }
-//  else                    {
-//    lcd.setCursor(offset, 1);
-//    lcd.print("  ");
-//  }
-//}
 
 void heaterOn()
 {
@@ -333,7 +344,7 @@ void displaySetPointTemperature(float setPoint_C)
 
 void displaySetPointWhileStopped(float setPoint_C)
 {
-  lcd.setCursor( 6, 0); lcd.print("Set:");
+  lcd.setCursor( 7, 0); lcd.print("Set");
   lcd.setCursor(10, 0); lcd.print(setPoint_C);
   lcd.setCursor(15, 0); lcd.print("C");
 }
@@ -346,9 +357,7 @@ void displayCurrentOnTime(unsigned long onTime_ms)
   else if (onTime_ms <= 99) timeLcdOffset += 2; // = 6;
   else if (onTime_ms <= 999) timeLcdOffset += 1; // = 5;
   lcd.setCursor(timeLcdOffset, 1); lcd.print(onTime_ms);
-  //lcd.setCursor(8, 1); lcd.print("ms");
-  lcd.setCursor(timeLcdOffset+4, 1); lcd.print("ms");
-  
+  lcd.setCursor(timeLcdOffset + 4, 1); lcd.print("ms");
 }
 
 void printVar_ul(String name, unsigned long value)
@@ -377,7 +386,7 @@ void printVar_b(String name, bool value)
 
 void printControlVariables()
 {
-  #ifdef USE_SERIAL
+#ifdef USE_SERIAL
   printVar_f("startupTemp_C", startupTemp_C);
   printVar_f("lowerSetPoint_C", lowerSetPoint_C);
   printVar_f("mediumLowSetPoint_C", mediumLowSetPoint_C);
@@ -388,6 +397,6 @@ void printControlVariables()
   printVar_f("lowOnTime_ms", lowOnTime_ms);
   printVar_f("mediumLowEquilibOnTime_ms", mediumLowEquilibOnTime_ms);
   printVar_f("equilibOnTime_ms", equilibOnTime_ms);
-  #endif
+#endif
 }
 

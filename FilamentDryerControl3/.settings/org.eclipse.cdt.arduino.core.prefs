@@ -1,0 +1,2 @@
+eclipse.preferences.version=1
+libraries=["MAX6675 library","GSSutil","GSSArduTasks","LiquidCrystal"]

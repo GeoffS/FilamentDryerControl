@@ -26,3 +26,16 @@ const int selectButtonPin = A4;
 
 // Heater PWM period:
 const int delay_ms = 5000;
+
+// Heater tuning constants:
+const float startupDutyCycle = 1.0;
+const float lowDutyCycle = 0.6;
+const float equlibDutyCycle = 0.4;
+const float mediumLowEqulibDutyCycle = 0.3;
+
+const unsigned long startupOnTime_ms = delay_ms * startupDutyCycle;
+const unsigned long equilibOnTime_ms = delay_ms * equlibDutyCycle;
+const unsigned long lowOnTime_ms = delay_ms * lowDutyCycle;
+const unsigned long mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
+
+const unsigned long mediumLowEquilibOnTimeDelta_ms = 5;

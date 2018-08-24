@@ -5,7 +5,7 @@
 #include "PinConfiguration.h"
 #include "HeaterControl.h"
 #include "PrintUtil.h"
-#include "ControlVariables.h"
+#include "SharedVariables.h"
 
 class HeaterControlTask: Task
 {
@@ -15,13 +15,13 @@ public:
 			bool* sharedStopped,
 			unsigned long* const sharedNextEventTime_ms,
 			unsigned long* const sharedNextStartInterval_ms,
-			ControlVariables* const sharedCv,
+			SharedVariables* const sharedVar,
 			Display* const sharedLcd) :
 				nextEventId(sharedNextEventId),
 				stopped(sharedStopped),
 				nextEventTime_ms(sharedNextEventTime_ms),
 				nextStartInterval_ms(sharedNextStartInterval_ms),
-				cv(sharedCv),
+				sv(sharedVar),
 				display(sharedLcd)
 	{
 
@@ -49,7 +49,7 @@ public:
 		case START_INTERVAL:
 			*nextStartInterval_ms = currTime_ms + delay_ms;
 			//processTemps();
-			nextOffTime_ms = processStartInterval(currTime_ms, avgTemp_C);
+			nextOffTime_ms = processStartInterval(currTime_ms, sv->avgTemp_C);
 			display->displayCurrentOnTime(nextOffTime_ms);
 			break;
 
@@ -65,8 +65,8 @@ private:
 	volatile bool* const stopped;
 	volatile unsigned long* const nextEventTime_ms;
 	volatile unsigned long* const nextStartInterval_ms;
-	ControlVariables* const cv;
-	const Display* const display;
+	SharedVariables* const sv;
+	Display* const display;
 
 	unsigned long processStartInterval(unsigned long now, float currTemp_C)
 	{
@@ -94,46 +94,46 @@ private:
 	unsigned long calcOnTime(float currTemp_C)
 	{
 		printVar_f("calcOnTime Temp", currTemp_C);
-		display->displayAvgTemperature(currTemp_C));
+		display->displayAvgTemperature(currTemp_C);
 
-		if (currTemp_C < cv->startupTemp_C)
+		if (currTemp_C < sv->startupTemp_C)
 		{
 			return startupOnTime_ms;
 		}
 
-		if (currTemp_C < cv->lowerSetPoint_C)
+		if (currTemp_C < sv->lowerSetPoint_C)
 		{
 			return lowOnTime_ms;
 		}
 
-		if (currTemp_C < cv->mediumLowSetPoint_C)
+		if (currTemp_C < sv->mediumLowSetPoint_C)
 		{
 			return equilibOnTime_ms;
 		}
 
-		if (currTemp_C < cv->upperSetPoint_C)
+		if (currTemp_C < sv->upperSetPoint_C)
 		{
-			float delta_C = currTemp_C - cv->setPoint_C;
+			float delta_C = currTemp_C - sv->setPoint_C;
 
-			mediumLowEquilibOnTime_ms -= delta_C / 2
-					* mediumLowEquilibOnTimeDelta_ms;
-			if (mediumLowEquilibOnTime_ms < 500)
-				mediumLowEquilibOnTime_ms = 500;
+			sv->mediumLowEquilibOnTime_ms -= delta_C / 2
+					* sv->mediumLowEquilibOnTimeDelta_ms;
+			if (sv->mediumLowEquilibOnTime_ms < 500)
+				sv->mediumLowEquilibOnTime_ms = 500;
 			printVar_f("mediumLowEquilibOnTime_ms (hot)",
-					mediumLowEquilibOnTime_ms);
+					sv->mediumLowEquilibOnTime_ms);
 
-			return mediumLowEquilibOnTime_ms;
+			return sv->mediumLowEquilibOnTime_ms;
 		}
 
 		// Above the upperSetPoint_C:
 		//  1) Turn off the heater
 		//  2) Reduce medmediumLowEquilibOnTime_ms by 500ms;
-		float delta_C = currTemp_C - setPoint_C;
-		mediumLowEquilibOnTime_ms -= delta_C * mediumLowEquilibOnTimeDelta_ms;
-		if (mediumLowEquilibOnTime_ms < 500)
-			mediumLowEquilibOnTime_ms = 500;
+		float delta_C = sv->currTemp_C - sv->setPoint_C;
+		sv->mediumLowEquilibOnTime_ms -= delta_C * sv->mediumLowEquilibOnTimeDelta_ms;
+		if (sv->mediumLowEquilibOnTime_ms < 500)
+			sv->mediumLowEquilibOnTime_ms = 500;
 		printVar_f("mediumLowEquilibOnTime_ms (vhot)",
-				mediumLowEquilibOnTime_ms);
+				sv->mediumLowEquilibOnTime_ms);
 		return 0;
 	}
 };

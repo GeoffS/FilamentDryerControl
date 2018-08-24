@@ -20,7 +20,7 @@
 #include "PinConfiguration.h"
 #include "TaskZero.h"
 #include "HeaterControlTask.h"
-#include "ControlVariables.h"
+#include "SharedVariables.h"
 
 // Configure all the hardware:
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
@@ -37,7 +37,7 @@ Button backButton = Button(backButtonPin, true);
 
 Display display();
 
-ControlVariables cv();
+SharedVariables cv();
 
 volatile int nextEventId = NO_ACTION;
 volatile bool stopped = true;
@@ -46,7 +46,7 @@ unsigned long nextStartInterval_ms;
 
 // Create all the tasks:
 TaskZero task0();
-HeaterControlTask heaterTask(&nextEventId, &stopped, &nextEventTime_ms, &nextStartInterval_ms, &display);
+HeaterControlTask heaterTask(&nextEventId, &stopped, &nextEventTime_ms, &nextStartInterval_ms, &cv, &display);
 
 // Setup and run everything:
 TASK_LIST(&task0, &heaterTask)

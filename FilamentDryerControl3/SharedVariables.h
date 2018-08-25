@@ -3,6 +3,11 @@
 class SharedVariables
 {
 public:
+	volatile int nextEventId = NO_ACTION;
+	volatile bool stopped = true;
+	unsigned long nextEventTime_ms;
+	unsigned long nextStartInterval_ms;
+
 	volatile float setPoint_C = 50;
 	volatile float hysterisis_C = 4;
 	volatile float startupTemp_C = setPoint_C - 20;
@@ -23,8 +28,6 @@ public:
 	volatile unsigned long mediumLowEquilibOnTime_ms = delay_ms * mediumLowEqulibDutyCycle;
 
 	volatile unsigned long mediumLowEquilibOnTimeDelta_ms = 5;
-
-	volatile bool stopped = true;
 
 	volatile float currTemp_C = 99.00;
 };

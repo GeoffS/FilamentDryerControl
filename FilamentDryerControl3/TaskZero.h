@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <GSSArduTasks.h>
 
-class TaskZero : Task
+class TaskZero : public Task
 {
 public:
     void setup() override

@@ -35,18 +35,16 @@ Button downButton = Button(downButtonPin, true);
 Button selectButton = Button(selectButtonPin, true);
 Button backButton = Button(backButtonPin, true);
 
-Display display();
+Display display(&lcd);
 
-SharedVariables cv();
+SharedVariables sv;
 
-volatile int nextEventId = NO_ACTION;
-volatile bool stopped = true;
-unsigned long nextEventTime_ms;
-unsigned long nextStartInterval_ms;
+
 
 // Create all the tasks:
-TaskZero task0();
-HeaterControlTask heaterTask(&nextEventId, &stopped, &nextEventTime_ms, &nextStartInterval_ms, &cv, &display);
+TaskZero task0;
+//HeaterControlTask heaterTask(&nextEventId, &stopped, &nextEventTime_ms, &nextStartInterval_ms, &cv, &display);
+HeaterControlTask heaterTask(&sv, &display);
 
 // Setup and run everything:
 TASK_LIST(&task0, &heaterTask)

@@ -6,21 +6,14 @@
 #include "HeaterControl.h"
 #include "PrintUtil.h"
 #include "SharedVariables.h"
+#include "Display.h"
 
-class HeaterControlTask: Task
+class HeaterControlTask: public Task
 {
 public:
 	HeaterControlTask(
-			int* const sharedNextEventId,
-			bool* sharedStopped,
-			unsigned long* const sharedNextEventTime_ms,
-			unsigned long* const sharedNextStartInterval_ms,
-			SharedVariables* const sharedVar,
-			Display* const sharedLcd) :
-				nextEventId(sharedNextEventId),
-				stopped(sharedStopped),
-				nextEventTime_ms(sharedNextEventTime_ms),
-				nextStartInterval_ms(sharedNextStartInterval_ms),
+			SharedVariables* sharedVar,
+			Display* sharedLcd) :
 				sv(sharedVar),
 				display(sharedLcd)
 	{
@@ -32,22 +25,31 @@ public:
 
 	}
 
+	bool needSerial()
+	{
+#ifdef USE_SERIAL
+		return true;
+#else
+		return false;
+#endif
+	}
+
 	long loop(long currTime_ms) override
 	{
 		unsigned long nextOffTime_ms = 0;
-		switch (*nextEventId)
+		switch (sv->nextEventId)
 		{
 		case NO_ACTION:
 			break;
 
 		case HEATER_OFF:
 			heaterOff();
-			*nextEventId = START_INTERVAL;
-			*nextEventTime_ms = *nextStartInterval_ms;
+			sv->nextEventId = START_INTERVAL;
+			sv->nextEventTime_ms = sv->nextStartInterval_ms;
 			break;
 
 		case START_INTERVAL:
-			*nextStartInterval_ms = currTime_ms + delay_ms;
+			sv->nextStartInterval_ms = currTime_ms + delay_ms;
 			//processTemps();
 			nextOffTime_ms = processStartInterval(currTime_ms, sv->avgTemp_C);
 			display->displayCurrentOnTime(nextOffTime_ms);
@@ -55,16 +57,13 @@ public:
 
 		default:
 			heaterOff();
-			*stopped = true;
+			sv->stopped = true;
 			return currTime_ms + 200;
 		}
+		return sv->nextEventTime_ms;
 	}
 
 private:
-	volatile int* const nextEventId;
-	volatile bool* const stopped;
-	volatile unsigned long* const nextEventTime_ms;
-	volatile unsigned long* const nextStartInterval_ms;
 	SharedVariables* const sv;
 	Display* const display;
 
@@ -76,16 +75,16 @@ private:
 		{
 			// Turn the heater on and setup for the heater-off event:
 			heaterOn();
-			*nextEventId = HEATER_OFF;
-			*nextEventTime_ms = now + nextOnTime_ms;
+			sv->nextEventId = HEATER_OFF;
+			sv->nextEventTime_ms = now + nextOnTime_ms;
 		}
 		else
 		{
 			// No on-time.
 			// Make sure the heater is off and setup for the next interrval start:
 			heaterOff();
-			*nextEventId = START_INTERVAL;
-			*nextEventTime_ms = *nextStartInterval_ms;
+			sv->nextEventId = START_INTERVAL;
+			sv->nextEventTime_ms = sv->nextStartInterval_ms;
 		}
 
 		return nextOnTime_ms;

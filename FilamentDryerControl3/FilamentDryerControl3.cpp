@@ -48,4 +48,4 @@ DisplayTask displayTask(&sv, &display);
 CheckControlsTask checkControlsTask(&sv);
 
 // Setup and run everything:
-TASK_LIST(&task0, &heaterTask, &checkControlsTask, &displayTask)
+RUN_TASKS(&task0, &heaterTask, &checkControlsTask, &displayTask)

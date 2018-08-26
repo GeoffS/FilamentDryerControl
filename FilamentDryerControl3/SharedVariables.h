@@ -5,8 +5,10 @@ class SharedVariables
 public:
 	volatile int nextEventId = NO_ACTION;
 	volatile bool stopped = true;
-	unsigned long nextEventTime_ms;
-	unsigned long nextStartInterval_ms;
+	volatile unsigned long nextEventTime_ms;
+	volatile unsigned long nextStartInterval_ms;
+	volatile unsigned long nextOffTime_ms = 0;
+	volatile float currTemp;
 
 	volatile float setPoint_C = 50;
 	volatile float hysterisis_C = 4;

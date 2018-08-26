@@ -11,11 +11,8 @@
 class HeaterControlTask: public Task
 {
 public:
-	HeaterControlTask(
-			SharedVariables* sharedVar,
-			Display* sharedLcd) :
-				sv(sharedVar),
-				display(sharedLcd)
+	HeaterControlTask(SharedVariables* sharedVar) :
+			sv(sharedVar)
 	{
 
 	}
@@ -36,7 +33,7 @@ public:
 
 	long loop(long currTime_ms) override
 	{
-		unsigned long nextOffTime_ms = 0;
+		sv->nextOffTime_ms = 0;
 		switch (sv->nextEventId)
 		{
 		case NO_ACTION:
@@ -51,8 +48,8 @@ public:
 		case START_INTERVAL:
 			sv->nextStartInterval_ms = currTime_ms + delay_ms;
 			//processTemps();
-			nextOffTime_ms = processStartInterval(currTime_ms, sv->avgTemp_C);
-			display->displayCurrentOnTime(nextOffTime_ms);
+			sv->nextOffTime_ms = processStartInterval(currTime_ms, sv->avgTemp_C);
+			//display->displayCurrentOnTime(nextOffTime_ms);
 			break;
 
 		default:
@@ -65,7 +62,6 @@ public:
 
 private:
 	SharedVariables* const sv;
-	Display* const display;
 
 	unsigned long processStartInterval(unsigned long now, float currTemp_C)
 	{
@@ -93,7 +89,7 @@ private:
 	unsigned long calcOnTime(float currTemp_C)
 	{
 		printVar_f("calcOnTime Temp", currTemp_C);
-		display->displayAvgTemperature(currTemp_C);
+		//display->displayAvgTemperature(currTemp_C);
 
 		if (currTemp_C < sv->startupTemp_C)
 		{
@@ -128,7 +124,8 @@ private:
 		//  1) Turn off the heater
 		//  2) Reduce medmediumLowEquilibOnTime_ms by 500ms;
 		float delta_C = sv->currTemp_C - sv->setPoint_C;
-		sv->mediumLowEquilibOnTime_ms -= delta_C * sv->mediumLowEquilibOnTimeDelta_ms;
+		sv->mediumLowEquilibOnTime_ms -= delta_C
+				* sv->mediumLowEquilibOnTimeDelta_ms;
 		if (sv->mediumLowEquilibOnTime_ms < 500)
 			sv->mediumLowEquilibOnTime_ms = 500;
 		printVar_f("mediumLowEquilibOnTime_ms (vhot)",

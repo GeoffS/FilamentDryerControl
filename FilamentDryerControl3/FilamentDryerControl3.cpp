@@ -20,6 +20,8 @@
 #include "PinConfiguration.h"
 #include "TaskZero.h"
 #include "HeaterControlTask.h"
+#include "DisplayTask.h"
+#include "CheckControlsTask.h"
 #include "SharedVariables.h"
 
 // Configure all the hardware:
@@ -39,12 +41,11 @@ Display display(&lcd);
 
 SharedVariables sv;
 
-
-
 // Create all the tasks:
-TaskZero task0;
-//HeaterControlTask heaterTask(&nextEventId, &stopped, &nextEventTime_ms, &nextStartInterval_ms, &cv, &display);
-HeaterControlTask heaterTask(&sv, &display);
+TaskZero task0(&sv);
+HeaterControlTask heaterTask(&sv);
+DisplayTask displayTask(&sv, &display);
+CheckControlsTask checkControlsTask(&sv);
 
 // Setup and run everything:
-TASK_LIST(&task0, &heaterTask)
+TASK_LIST(&task0, &heaterTask, &checkControlsTask, &displayTask)
